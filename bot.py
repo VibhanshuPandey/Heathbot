@@ -19,9 +19,9 @@ executor = ThreadPoolExecutor()
 db_path = "appointments.db"
 
 # Twilio configuration
-TWILIO_ACCOUNT_SID = 'ACe13a3c75c3f37fefe54221dce79d08ed'
-TWILIO_AUTH_TOKEN = '4dd8c566c3dd403f7b2b411e1f9de221'
-TWILIO_PHONE_NUMBER = 'MG5937880fe6180b23e0d5cfde64cad866'
+TWILIO_ACCOUNT_SID = ''
+TWILIO_AUTH_TOKEN = ''
+TWILIO_PHONE_NUMBER = ''
 client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
 # Create Database
