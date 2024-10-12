@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Appointment Scheduler Chatbot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        #chatbot {
+            width: 400px;
+            height: 500px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        #user-input {
+            width: 300px;
+            padding: 10px;
+        }
+        #send-btn {
+            padding: 10px;
+        }
+        .message {
+            margin: 5px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: #d1e7dd;
+            text-align: right;
+        }
+        .bot-message {
+            background-color: #f8d7da;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <h1>Welcome to the Doctor Appointment Scheduler</h1>
+    <p>Use the chatbot below to schedule, reschedule, or cancel appointments.</p>
+    <div id="chatbot"></div>
+    <input type="text" id="user-input" placeholder="Type your message here...">
+    <button id="send-btn">Send</button>
+
+    <script>
+        const chatbot = document.getElementById("chatbot");
+        const userInput = document.getElementById("user-input");
+        const sendBtn = document.getElementById("send-btn");
+
+        sendBtn.addEventListener("click", () => {
+            handleUserInput();
+        });
+
+        userInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                handleUserInput();
+            }
+        });
+
+        function handleUserInput() {
+            const userText = userInput.value;
+            if (userText) {
+                addMessage(userText, 'user-message');
+                processUserMessage(userText);
+                userInput.value = "";
+            }
+        }
+
+        function addMessage(text, className) {
+            const message = document.createElement("div");
+            message.className = `message ${className}`;
+            message.innerText = text;
+            chatbot.appendChild(message);
+            chatbot.scrollTop = chatbot.scrollHeight;
+        }
+
+        async function processUserMessage(userText) {
+            let response;
+            try {
+                const command = userText.toLowerCase();
+                if (command === "schedule an appointment") {
+                    const hospitalsResponse = await fetch('/get_hospitals');
+                    if (!hospitalsResponse.ok) throw new Error("Failed to fetch hospitals");
+                    const hospitals = await hospitalsResponse.json();
+                    let hospitalOptions = "Select a hospital:\n";
+                    hospitals.forEach((hospital, index) => {
+                        hospitalOptions += `${index + 1}. ${hospital.name}\n`;
+                    });
+                    const hospitalIndex = parseInt(prompt(hospitalOptions)) - 1;
+                    if (hospitalIndex < 0 || hospitalIndex >= hospitals.length) {
+                        throw new Error("Invalid hospital selection.");
+                    }
+                    const selectedHospital = hospitals[hospitalIndex];
+
+                    const doctorsResponse = await fetch(`/get_doctors?hospital_id=${selectedHospital.id}`);
+                    if (!doctorsResponse.ok) throw new Error("Failed to fetch doctors");
+                    const doctors = await doctorsResponse.json();
+                    let doctorOptions = "Select a doctor:\n";
+                    doctors.forEach((doctor, index) => {
+                        doctorOptions += `${index + 1}. ${doctor.name} (${doctor.specialty})\n`;
+                    });
+                    const doctorIndex = parseInt(prompt(doctorOptions)) - 1;
+                    if (doctorIndex < 0 || doctorIndex >= doctors.length) {
+                        throw new Error("Invalid doctor selection.");
+                    }
+                    const selectedDoctor = doctors[doctorIndex];
+
+                    const patientName = prompt("Please enter the patient's name:");
+                    const patientId = `PAT${Math.floor(1000 + Math.random() * 9000)}`;
+                    const phoneNumber = prompt("Please enter the patient's phone number (e.g., +1234567890):");
+                    const appointmentDatetime = prompt("Please enter the appointment date and time (YYYY-MM-DD HH:MM):");
+
+                    response = await fetch("/schedule", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            patient_id: patientId,
+                            patient_name: patientName,
+                            doctor_name: selectedDoctor.name,
+                            appointment_time: appointmentDatetime,
+                            phone_number: phoneNumber
+                        })
+                    });
+                } else if (command.startsWith("reschedule")) {
+                    const appointmentId = prompt("Please enter the appointment ID:");
+                    const newDatetime = prompt("Please enter the new appointment date and time (YYYY-MM-DD HH:MM):");
+
+                    response = await fetch("/reschedule", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            appointment_id: appointmentId,
+                            new_time: newDatetime
+                        })
+                    });
+                } else if (command.startsWith("cancel")) {
+                    const appointmentId = prompt("Please enter the appointment ID to cancel:");
+
+                    response = await fetch("/cancel", {
+                        method: "DELETE",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ appointment_id: appointmentId })
+                    });
+                } else {
+                    addMessage("Invalid command. Use 'schedule an appointment', 'reschedule', or 'cancel' commands.", 'bot-message');
+                    return;
+                }
+
+                if (response.ok && response.headers.get("content-type")?.includes("application/json")) {
+                    const responseData = await response.json();
+                    addMessage(responseData.message || "Request processed successfully.", 'bot-message');
+                } else {
+                    throw new Error("Unexpected response type or failed request");
+                }
+            } catch (error) {
+                console.error("Error occurred:", error);
+                addMessage(`An error occurred: ${error.message}. Please try again.`, 'bot-message');
+            }
+        }
+
+    </script>
+</body>
+</html>
